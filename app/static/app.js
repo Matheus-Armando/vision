@@ -125,6 +125,7 @@ function renderSidebar(active) {
       </div>
       <nav class="space-y-1.5">
         ${item('/painel', 'layout-dashboard', 'Dashboard', 'dashboard')}
+        ${item('/painel', 'sliders', 'Automação', 'automacao')}
       </nav>
       <div class="space-y-1.5 pt-4 border-t border-[#262626]">
         <span class="text-[9px] font-bold text-[#888888] uppercase tracking-wider block px-1 pb-1">Gestão</span>

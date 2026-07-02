@@ -4,6 +4,88 @@ const ws = dzActiveWorkspace();
 const isPrincipal = ws.id === 'principal';
 let signalOn = true;
 
+// ---------- log drawer ----------
+let logDrawerOpen = false;
+let logUnread = 0;
+let logEventCount = 0;
+
+function toggleLogDrawer() {
+  logDrawerOpen = !logDrawerOpen;
+  const drawer = document.getElementById('log-drawer');
+  drawer.classList.toggle('translate-x-full', !logDrawerOpen);
+  drawer.classList.toggle('translate-x-0', logDrawerOpen);
+  if (logDrawerOpen) {
+    logUnread = 0;
+    updateLogBadge();
+  }
+  initLucide();
+}
+
+function clearLogDrawer() {
+  logEventCount = 0;
+  const tl = document.getElementById('events-timeline');
+  tl.innerHTML = '<p class="text-xs text-[#888888] italic text-center py-4">Log limpo.</p>';
+  document.getElementById('drawer-event-count').textContent = '0 eventos registrados';
+}
+
+function updateLogBadge() {
+  const badge = document.getElementById('log-unread-badge');
+  if (!badge) return;
+  if (logUnread > 0) {
+    badge.textContent = logUnread > 9 ? '9+' : logUnread;
+    badge.classList.remove('hidden');
+    badge.classList.add('flex');
+  } else {
+    badge.classList.add('hidden');
+    badge.classList.remove('flex');
+  }
+}
+
+// ---------- log queue (one-by-one, 10-item cap) ----------
+const logQueue = [];
+let logDraining = false;
+
+function drainLogQueue() {
+  if (logDraining || !logQueue.length) return;
+  logDraining = true;
+  const ev = logQueue.shift();
+  appendLogEvent(ev);
+  setTimeout(() => {
+    logDraining = false;
+    drainLogQueue();
+  }, 350);
+}
+
+function appendLogEvent(ev) {
+  const container = document.getElementById('events-timeline');
+  if (container.querySelector('p')) container.innerHTML = '';
+
+  const item = document.createElement('div');
+  item.className = 'relative pl-4 border-l border-[#2d2d2d] pb-1 animate-fadeIn';
+  const dot = ev.kind === 'rule' ? 'bg-neutral-100' : 'bg-[#555555]';
+  const conf = ev.confidence ? ` · ${Math.round(ev.confidence * 100)}%` : '';
+  item.innerHTML =
+    `<span class="absolute -left-1 top-1.5 w-2 h-2 rounded-full ${dot}"></span>` +
+    `<div class="flex justify-between items-baseline gap-2">` +
+    `<h5 class="text-xs font-bold text-slate-200">${ev.message}</h5>` +
+    `<span class="text-[9px] text-[#888888] shrink-0">${ev.time}</span></div>` +
+    `<p class="text-[10px] text-[#888888] mt-0.5">${kindLabel(ev.kind)}${conf}${ev.rule ? ' · regra: ' + ev.rule : ''}</p>`;
+  container.prepend(item);
+
+  // keep max 10
+  while (container.children.length > 10) container.removeChild(container.lastChild);
+
+  logEventCount++;
+  const fc = document.getElementById('drawer-event-count');
+  if (fc) fc.textContent = `${logEventCount} evento${logEventCount !== 1 ? 's' : ''} registrado${logEventCount !== 1 ? 's' : ''}`;
+  const ld = document.getElementById('drawer-live-dot');
+  if (ld) ld.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+  if (!logDrawerOpen) {
+    logUnread++;
+    updateLogBadge();
+  }
+}
+
 // condições fiéis ao motor de regras (mesmos nomes do modelo) + visões futuras
 const EVENT_OPTIONS = [
   { id: 'person_recognized', title: 'Pessoa reconhecida', desc: 'Dispara quando o perfil treinado (ou qualquer pessoa cadastrada) é reconhecido no visor.', real: true, needs: ['person'] },
@@ -99,22 +181,8 @@ startEventStream({
     }
   },
   onEvents(events) {
-    const container = document.getElementById('events-timeline');
-    if (container.querySelector('p')) container.innerHTML = '';
-    for (const ev of events) {
-      const item = document.createElement('div');
-      item.className = 'relative pl-4 border-l border-[#2d2d2d] pb-1 animate-fadeIn';
-      const dot = ev.kind === 'rule' ? 'bg-neutral-100' : 'bg-[#555555]';
-      const conf = ev.confidence ? ` · ${Math.round(ev.confidence * 100)}%` : '';
-      item.innerHTML =
-        `<span class="absolute -left-1 top-1.5 w-2 h-2 rounded-full ${dot}"></span>` +
-        `<div class="flex justify-between items-baseline gap-2">` +
-        `<h5 class="text-xs font-bold text-slate-200">${ev.message}</h5>` +
-        `<span class="text-[9px] text-[#888888] shrink-0">${ev.time}</span></div>` +
-        `<p class="text-[10px] text-[#888888] mt-0.5">${kindLabel(ev.kind)}${conf}${ev.rule ? ' · regra: ' + ev.rule : ''}</p>`;
-      container.prepend(item);
-    }
-    while (container.children.length > 40) container.removeChild(container.lastChild);
+    for (const ev of events) logQueue.push(ev);
+    drainLogQueue();
   },
 });
 

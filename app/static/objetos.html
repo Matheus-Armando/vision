@@ -14,9 +14,15 @@
   <aside id="sidebar"></aside>
 
   <main class="flex-1 bg-[#121212] p-6 md:p-8 overflow-y-auto space-y-8 animate-fadeIn">
-    <div class="border-b border-[#262626] pb-4">
-      <h1 class="text-xl font-bold text-white">Objetos</h1>
-      <p class="text-[#888888] text-xs mt-1">Detector open-vocabulary: descreva o objeto em texto e ele passa a ser reconhecido na hora — sem treinar nada.</p>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#262626]">
+      <div>
+        <h1 class="text-xl font-bold text-white">Objetos</h1>
+        <p class="text-[#888888] text-xs mt-1">Detector open-vocabulary: descreva o objeto em texto e ele passa a ser reconhecido na hora — sem treinar nada.</p>
+      </div>
+      <div id="badge-objects" class="flex items-center gap-2 bg-[#1c1c1c] border border-[#2a2a2a] text-[#eeeeee] px-3.5 py-1.5 rounded-lg text-xs font-semibold shrink-0">
+        <span id="badge-objects-dot" class="w-1.5 h-1.5 rounded-full bg-neutral-600"></span>
+        <span id="badge-objects-text">Carregando...</span>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -75,6 +81,18 @@
 <script src="/static/app.js?v=dz2"></script>
 <script>
   renderSidebar('objetos');
+
+  async function pollModelStatus() {
+    try {
+      const st = await api('GET', '/api/status');
+      document.getElementById('badge-objects-dot').className =
+        `w-1.5 h-1.5 rounded-full ${st.objects_ready ? 'bg-emerald-500 animate-pulse' : 'bg-rose-600'}`;
+      document.getElementById('badge-objects-text').textContent =
+        st.objects_ready ? 'Detecção de Objetos Ativa' : 'Modelo carregando...';
+    } catch (e) {}
+    setTimeout(pollModelStatus, 3000);
+  }
+  pollModelStatus();
 
   async function refresh() {
     const data = await api('GET', '/api/objects');
