@@ -16,7 +16,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import store
@@ -77,7 +77,12 @@ def startup():
 # ---------- páginas ----------
 @app.get("/")
 def index():
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(STATIC / "ambientes.html")
+
+
+@app.get("/painel")
+def painel_page():
+    return FileResponse(STATIC / "painel.html")
 
 
 @app.get("/pessoas")
@@ -136,6 +141,24 @@ async def events():
 @app.get("/api/detections")
 def detections():
     return camera.latest_detections()
+
+
+@app.get("/api/stats")
+def stats():
+    return bus.stats()
+
+
+@app.get("/api/snapshot")
+def snapshot():
+    """Frame cru da câmera (sem caixas desenhadas) — usado na captura de fotos."""
+    frame = camera.latest_raw()
+    if frame is None:
+        raise HTTPException(503, "Câmera ainda não está ao vivo")
+    ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    if not ok:
+        raise HTTPException(500, "Falha ao codificar o frame")
+    return Response(content=jpeg.tobytes(), media_type="image/jpeg",
+                    headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/status")

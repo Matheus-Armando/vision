@@ -13,6 +13,12 @@ class EventBus:
         self._cooldowns: dict[str, float] = {}
         # banner ativo na tela Ao Vivo (setado pelas regras)
         self._banner: dict | None = None
+        # contadores de sessão (alimentam o dashboard)
+        self._started = time.time()
+        self._counters = {"identificacoes": 0, "desconhecidos": 0,
+                          "objetos": 0, "regras": 0, "eventos": 0}
+        self._conf_sum = 0.0
+        self._conf_count = 0
 
     def emit(
         self,
@@ -39,7 +45,36 @@ class EventBus:
                     **meta,
                 }
             )
+            self._count(kind, dedupe_key, meta)
             return True
+
+    def _count(self, kind: str, dedupe_key: str | None, meta: dict) -> None:
+        if kind != "system":
+            self._counters["eventos"] += 1
+        if kind == "face":
+            if dedupe_key == "face:unknown":
+                self._counters["desconhecidos"] += 1
+            else:
+                self._counters["identificacoes"] += 1
+                if meta.get("confidence"):
+                    self._conf_sum += float(meta["confidence"])
+                    self._conf_count += 1
+        elif kind == "object":
+            self._counters["objetos"] += 1
+        elif kind == "rule":
+            self._counters["regras"] += 1
+
+    def stats(self) -> dict:
+        with self._lock:
+            precisao = (
+                round(self._conf_sum / self._conf_count * 100, 1)
+                if self._conf_count else None
+            )
+            return {
+                **self._counters,
+                "precisao": precisao,
+                "uptime_s": int(time.time() - self._started),
+            }
 
     def set_banner(self, color: str, text: str, duration: float = 4.0, sound: bool = False):
         with self._lock:

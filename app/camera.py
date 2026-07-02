@@ -11,7 +11,11 @@ import cv2
 
 DISPLAY_WIDTH = 1280
 
-GREEN, RED, BLUE, WHITE = (80, 200, 120), (80, 80, 235), (235, 160, 80), (255, 255, 255)
+# paleta DeZoio (BGR): monocromática, rose para alertas
+WHITE = (255, 255, 255)
+ROSE = (72, 29, 225)      # rose-600 #e11d48
+GRAY = (170, 170, 170)
+DARK = (18, 18, 18)
 
 
 class CameraWorker(threading.Thread):
@@ -121,22 +125,35 @@ class CameraWorker(threading.Thread):
                     dedupe_key=f"object:{o['cls']}", confidence=o["conf"],
                 )
 
-    # ---- desenho ----
+    # ---- desenho (linguagem visual DeZoio: caixa fina + cantoneiras + chip) ----
     def _draw(self, frame, face_dets, obj_dets):
         for o in obj_dets:
             x1, y1, x2, y2 = o["bbox"]
-            cv2.rectangle(frame, (x1, y1), (x2, y2), BLUE, 2)
-            self._label(frame, f"{o['label']} {o['conf']:.0%}", x1, y1, BLUE)
+            self._det_box(frame, x1, y1, x2, y2, GRAY)
+            self._chip(frame, f"{o['label']} {o['conf']:.0%}", x1, y1, DARK, GRAY)
         for f in face_dets:
             x1, y1, x2, y2 = f["bbox"]
-            color = GREEN if f["name"] else RED
-            text = f"{f['name']} {f['score']:.0%}" if f["name"] else "Desconhecido"
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            self._label(frame, text, x1, y1, color)
+            if f["name"]:
+                self._det_box(frame, x1, y1, x2, y2, WHITE)
+                self._chip(frame, f["name"], x1, y1, WHITE, DARK)
+                self._chip(frame, f"conf {f['score']:.0%}", x1, y2 + 18, DARK, WHITE)
+            else:
+                self._det_box(frame, x1, y1, x2, y2, ROSE)
+                self._chip(frame, "DESCONHECIDO", x1, y1, ROSE, WHITE)
         return frame
 
     @staticmethod
-    def _label(frame, text, x, y, color):
-        (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        cv2.rectangle(frame, (x, y - th - 10), (x + tw + 8, y), color, -1)
-        cv2.putText(frame, text, (x + 4, y - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.6, WHITE, 2)
+    def _det_box(frame, x1, y1, x2, y2, color, corner=14, thick=2):
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
+        for cx, cy, dx, dy in ((x1, y1, 1, 1), (x2, y1, -1, 1),
+                               (x1, y2, 1, -1), (x2, y2, -1, -1)):
+            cv2.line(frame, (cx, cy), (cx + dx * corner, cy), color, thick)
+            cv2.line(frame, (cx, cy), (cx, cy + dy * corner), color, thick)
+
+    @staticmethod
+    def _chip(frame, text, x, y, bg, fg):
+        (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+        y0 = max(th + 8, y)
+        cv2.rectangle(frame, (x, y0 - th - 8), (x + tw + 10, y0 - 2), bg, -1)
+        cv2.putText(frame, text, (x + 5, y0 - 7),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, fg, 1, cv2.LINE_AA)

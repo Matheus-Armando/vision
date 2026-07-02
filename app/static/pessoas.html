@@ -2,138 +2,152 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>VisionFlow — Pessoas</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeZoio — Pessoas</title>
+  <script src="/static/vendor/tailwind.js?v=dz2"></script>
+  <script src="/static/vendor/lucide.min.js?v=dz2"></script>
+  <link rel="stylesheet" href="/static/style.css?v=dz2">
 </head>
-<body>
-  <aside class="sidebar">
-    <div class="logo">Vision<span>Flow</span></div>
-    <a class="nav-item" href="/">Ao Vivo</a>
-    <a class="nav-item active" href="/pessoas">Pessoas</a>
-    <a class="nav-item" href="/objetos">Objetos</a>
-    <a class="nav-item" href="/regras">Regras</a>
-    <div class="footer">MVP — Ideathon 2026</div>
-  </aside>
+<body class="text-[#eeeeee] font-sans antialiased selection:bg-neutral-800 selection:text-white">
 
-  <main class="main">
-    <div class="page-title">Pessoas</div>
-    <div class="page-sub">Cadastre uma pessoa com 3–5 fotos — o reconhecimento passa a valer na hora.</div>
+<div class="min-h-screen flex flex-col md:flex-row">
+  <aside id="sidebar"></aside>
 
-    <div class="row">
-      <div class="card" style="width:340px; flex-shrink:0;">
-        <div class="field">
-          <label>Nome</label>
-          <input id="name-input" placeholder="ex.: Matheus" style="width:100%;">
+  <main class="flex-1 bg-[#121212] p-6 md:p-8 overflow-y-auto space-y-8 animate-fadeIn">
+    <div class="border-b border-[#262626] pb-4">
+      <h1 class="text-xl font-bold text-white">Pessoas</h1>
+      <p class="text-[#888888] text-xs mt-1">Perfis calibrados para reconhecimento facial. O treino é imediato: foto enviada = rosto reconhecido.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- form -->
+      <div class="bg-[#1c1c1c] border border-[#262626] p-6 rounded-2xl space-y-4 h-fit">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-[#888888]">Novo Perfil</h3>
+        <div class="space-y-2">
+          <label class="text-[10px] uppercase font-bold text-[#888888] tracking-wider block">Nome</label>
+          <input id="name-input" placeholder="Ex: Matheus"
+                 class="w-full bg-[#121212] border border-[#2d2d2d] rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-neutral-600 focus:border-white transition-all outline-none">
         </div>
-        <div class="field">
-          <label>Fotos (3–5: frente e leves ângulos, bem iluminadas)</label>
-          <input type="file" id="create-files" accept="image/*" multiple style="width:100%;">
+        <div class="space-y-2">
+          <label class="text-[10px] uppercase font-bold text-[#888888] tracking-wider block">Fotos (3–5, frente e leves ângulos)</label>
+          <div class="border border-dashed border-[#2d2d2d] hover:border-neutral-500 bg-[#121212]/40 hover:bg-[#121212] rounded-xl p-6 transition-all text-center cursor-pointer relative group">
+            <input type="file" id="create-files" multiple accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer"
+                   onchange="document.getElementById('create-files-label').textContent = this.files.length + ' foto(s) selecionada(s)'">
+            <i data-lucide="upload" class="w-5 h-5 text-slate-500 group-hover:text-white mb-1 mx-auto transition-all"></i>
+            <p id="create-files-label" class="text-[10px] text-slate-500">Clique para selecionar</p>
+          </div>
         </div>
-        <button class="primary" style="width:100%;" onclick="createPerson()">Cadastrar e treinar</button>
-        <p style="color:var(--muted); font-size:12px; margin-top:12px;">
-          O treinamento é automático: cada foto enviada (ou capturada da câmera)
-          vira uma assinatura facial na hora — sem etapa separada.
-        </p>
-        <div class="video-wrap" style="margin-top:14px;">
-          <img src="/video_feed" alt="Prévia da câmera">
+        <button onclick="createPerson()" class="w-full bg-white hover:bg-neutral-200 text-black py-2.5 rounded-xl font-bold transition-all text-xs">
+          Cadastrar e treinar
+        </button>
+        <p class="text-[10px] text-[#555555]">O treinamento é automático: cada foto vira uma assinatura facial na hora — sem etapa separada.</p>
+
+        <div class="rounded-xl overflow-hidden border border-[#262626]">
+          <img data-video alt="Prévia da câmera" class="w-full block">
         </div>
       </div>
 
-      <div style="flex:1;">
-        <div class="grid" id="people-grid"></div>
+      <!-- lista -->
+      <div class="lg:col-span-2">
+        <div id="people-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
       </div>
     </div>
   </main>
+</div>
 
-  <div class="toast" id="toast"></div>
-  <input type="file" id="file-input" accept="image/*" multiple style="display:none;">
-  <script src="/static/app.js"></script>
-  <script>
-    let uploadTarget = null;
+<input type="file" id="file-input" accept="image/*" multiple class="hidden">
+<script src="/static/app.js?v=dz2"></script>
+<script>
+  renderSidebar('pessoas');
+  let uploadTarget = null;
 
-    async function refresh() {
-      const people = await api('GET', '/api/people');
-      const grid = document.getElementById('people-grid');
-      grid.innerHTML = '';
-      if (!people.length) {
-        grid.innerHTML = '<p style="color:var(--muted);">Nenhuma pessoa cadastrada ainda.</p>';
-        return;
+  async function refresh() {
+    const people = await api('GET', '/api/people');
+    const grid = document.getElementById('people-grid');
+    if (!people.length) {
+      grid.innerHTML = `
+        <div class="col-span-full bg-[#1c1c1c]/50 border border-dashed border-[#2a2a2a] p-12 rounded-2xl text-center">
+          <h4 class="font-bold text-slate-300 text-sm">Nenhum perfil calibrado</h4>
+          <p class="text-xs text-[#888888] mt-1">Cadastre a primeira pessoa para ativar o reconhecimento.</p>
+        </div>`;
+      return;
+    }
+    grid.innerHTML = people.map(p => `
+      <div class="bg-[#1c1c1c] border border-[#262626] rounded-2xl overflow-hidden flex flex-col">
+        <img src="/api/people/${p.id}/thumb?t=${Date.now()}" onerror="this.style.opacity=0.1"
+             class="w-full h-40 object-cover bg-[#121212]">
+        <div class="p-4 space-y-3 flex-1 flex flex-col">
+          <div>
+            <h4 class="text-sm font-bold text-white">${p.name}</h4>
+            ${p.photos
+              ? `<p class="text-[10px] text-[#888888] mt-0.5">${p.photos} imagem(ns) calibradas</p>`
+              : `<p class="text-[10px] text-rose-400 mt-0.5 font-semibold">Sem fotos — não será reconhecido(a)</p>`}
+          </div>
+          <div class="flex flex-wrap gap-2 mt-auto">
+            <button onclick="pickFiles('${p.id}')" class="bg-[#222222] hover:bg-[#2a2a2a] border border-[#2e2d2e] px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-slate-300 transition-all">+ Fotos (treinar)</button>
+            <button onclick="capture('${p.id}')" class="bg-[#222222] hover:bg-[#2a2a2a] border border-[#2e2d2e] px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-slate-300 transition-all">Capturar da câmera</button>
+            <button onclick="removePerson('${p.id}', '${p.name}')" class="bg-rose-950/20 border border-rose-900/60 text-rose-400 hover:bg-rose-950/40 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all">Excluir</button>
+          </div>
+        </div>
+      </div>`).join('');
+    initLucide();
+  }
+
+  async function createPerson() {
+    const name = document.getElementById('name-input').value.trim();
+    if (!name) return toast('Digite um nome', '', 'error');
+    const filesInput = document.getElementById('create-files');
+    try {
+      const person = await api('POST', '/api/people', { name });
+      let desc = 'Envie fotos ou capture da câmera para treinar.';
+      if (filesInput.files.length) {
+        const form = new FormData();
+        for (const f of filesInput.files) form.append('files', f);
+        const res = await api('POST', `/api/people/${person.id}/photos`, form);
+        desc = `${res.processed} foto(s) treinada(s)` + (res.skipped ? `, ${res.skipped} sem rosto` : '');
       }
-      for (const p of people) {
-        const card = document.createElement('div');
-        card.className = 'card person-card';
-        card.innerHTML =
-          `<img class="thumb" src="/api/people/${p.id}/thumb?t=${Date.now()}" onerror="this.style.opacity=0.15">` +
-          `<div><div class="name">${p.name}</div>` +
-          (p.photos
-            ? `<div class="meta">${p.photos} foto(s) treinada(s)</div>`
-            : `<div class="meta" style="color:var(--red);">Sem fotos — não será reconhecido(a)</div>`) +
-          `</div>` +
-          `<div class="actions">` +
-          `<button onclick="pickFiles('${p.id}')">+ Fotos (treinar)</button>` +
-          `<button onclick="capture('${p.id}')">Capturar da câmera (treinar)</button>` +
-          `<button class="danger" onclick="removePerson('${p.id}', '${p.name}')">Excluir</button>` +
-          `</div>`;
-        grid.appendChild(card);
-      }
-    }
-
-    async function createPerson() {
-      const name = document.getElementById('name-input').value.trim();
-      if (!name) return toast('Digite um nome', true);
-      const filesInput = document.getElementById('create-files');
-      try {
-        const person = await api('POST', '/api/people', { name });
-        let msg = `${name} cadastrado(a)`;
-        if (filesInput.files.length) {
-          const form = new FormData();
-          for (const f of filesInput.files) form.append('files', f);
-          const res = await api('POST', `/api/people/${person.id}/photos`, form);
-          msg += ` — ${res.processed} foto(s) treinada(s)`;
-          if (res.skipped) msg += `, ${res.skipped} sem rosto detectado`;
-        } else {
-          msg += ' — envie fotos ou capture da câmera para treinar';
-        }
-        document.getElementById('name-input').value = '';
-        filesInput.value = '';
-        toast(msg);
-        refresh();
-      } catch (e) { toast(e.message, true); }
-    }
-
-    function pickFiles(personId) {
-      uploadTarget = personId;
-      document.getElementById('file-input').click();
-    }
-
-    document.getElementById('file-input').addEventListener('change', async (ev) => {
-      if (!uploadTarget || !ev.target.files.length) return;
-      const form = new FormData();
-      for (const f of ev.target.files) form.append('files', f);
-      try {
-        const res = await api('POST', `/api/people/${uploadTarget}/photos`, form);
-        toast(`${res.processed} rosto(s) processado(s)` +
-              (res.skipped ? `, ${res.skipped} foto(s) sem rosto` : ''));
-        refresh();
-      } catch (e) { toast(e.message, true); }
-      ev.target.value = '';
-    });
-
-    async function capture(personId) {
-      try {
-        const res = await api('POST', `/api/people/${personId}/capture`);
-        toast(`Foto capturada — ${res.total} no total`);
-        refresh();
-      } catch (e) { toast(e.message, true); }
-    }
-
-    async function removePerson(personId, name) {
-      if (!confirm(`Excluir ${name}?`)) return;
-      await api('DELETE', `/api/people/${personId}`);
+      document.getElementById('name-input').value = '';
+      filesInput.value = '';
+      document.getElementById('create-files-label').textContent = 'Clique para selecionar';
+      toast(`${name} cadastrado(a)`, desc);
       refresh();
-    }
+    } catch (e) { toast('Erro', e.message, 'error'); }
+  }
 
+  function pickFiles(personId) {
+    uploadTarget = personId;
+    document.getElementById('file-input').click();
+  }
+
+  document.getElementById('file-input').addEventListener('change', async (ev) => {
+    if (!uploadTarget || !ev.target.files.length) return;
+    const form = new FormData();
+    for (const f of ev.target.files) form.append('files', f);
+    try {
+      const res = await api('POST', `/api/people/${uploadTarget}/photos`, form);
+      toast('Treinamento concluído',
+        `${res.processed} rosto(s) processado(s)` + (res.skipped ? `, ${res.skipped} foto(s) sem rosto` : ''));
+      refresh();
+    } catch (e) { toast('Erro', e.message, 'error'); }
+    ev.target.value = '';
+  });
+
+  async function capture(personId) {
+    try {
+      const res = await api('POST', `/api/people/${personId}/capture`);
+      toast('Foto capturada', `${res.total} imagem(ns) calibradas no total.`);
+      refresh();
+    } catch (e) { toast('Erro', e.message, 'error'); }
+  }
+
+  async function removePerson(personId, name) {
+    if (!confirm(`Excluir ${name}?`)) return;
+    await api('DELETE', `/api/people/${personId}`);
+    toast('Perfil removido', name);
     refresh();
-  </script>
+  }
+
+  refresh();
+</script>
 </body>
 </html>

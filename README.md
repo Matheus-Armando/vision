@@ -1,4 +1,11 @@
-# VisionFlow — MVP Ideathon
+# DeZoio — MVP Ideathon
+
+> Identidade visual e fluxo baseados no protótipo DeZoio (`dezoio/`), ligados
+> no backend real. UI 100% offline (Tailwind/Lucide vendorizados em
+> `app/static/vendor/`). Fluxo: **/** (seleção de ambiente) → **/painel**
+> (Dashboard com feed ao vivo + stats + Automação com wizard de 5 etapas que
+> treina perfil e cria regra reais) → telas de gestão (/pessoas, /objetos,
+> /regras).
 
 A câmera vira fonte de dados: reconhecimento facial + detecção de objetos em tempo
 real alimentam **eventos** e um **construtor de regras SE → ENTÃO**. Tudo roda

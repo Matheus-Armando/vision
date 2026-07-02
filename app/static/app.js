@@ -1,4 +1,4 @@
-// Helpers compartilhados: API, SSE de eventos, banner, toast e status.
+// DeZoio — helpers compartilhados: API, SSE, toasts, vídeo MJPEG e OSD.
 
 async function api(method, url, body) {
   const opts = { method, headers: {} };
@@ -16,17 +16,33 @@ async function api(method, url, body) {
   return res.json();
 }
 
-function toast(message, isError = false) {
-  const el = document.getElementById('toast');
-  if (!el) return alert(message);
-  el.textContent = message;
-  el.style.borderLeftColor = isError ? 'var(--red)' : 'var(--accent)';
-  el.classList.add('show');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('show'), 3000);
+// ---------- toasts DeZoio (slideIn no canto) ----------
+function toast(title, desc = '', type = 'success') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed bottom-6 right-6 z-50 space-y-2 max-w-sm w-full px-4 sm:px-0';
+    document.body.appendChild(container);
+  }
+  const el = document.createElement('div');
+  const border = type === 'error' ? 'border-rose-900/70' : 'border-[#2d2d2d]';
+  const dot = type === 'error' ? 'bg-rose-500' : 'bg-emerald-500';
+  el.className = `bg-[#1c1c1c] border ${border} rounded-xl px-4 py-3 shadow-2xl animate-slideIn flex items-start gap-3`;
+  el.innerHTML =
+    `<span class="w-1.5 h-1.5 rounded-full ${dot} mt-1.5 shrink-0"></span>` +
+    `<div><p class="text-xs font-bold text-white">${title}</p>` +
+    (desc ? `<p class="text-[10px] text-[#888888] mt-0.5">${desc}</p>` : '') +
+    `</div>`;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.transition = 'opacity 0.3s';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 350);
+  }, 3500);
 }
 
-// ---------- eventos ao vivo (SSE) ----------
+// ---------- som de alerta ----------
 let audioCtx;
 function beep() {
   try {
@@ -42,73 +58,98 @@ function beep() {
   } catch (e) { /* som é opcional */ }
 }
 
-function startEventStream() {
-  const list = document.getElementById('event-list');
-  const banner = document.getElementById('banner');
+// ---------- eventos ao vivo (SSE) ----------
+// handlers.onEvents(list) e handlers.onBanner(bannerOuNull) são fornecidos pela página.
+function startEventStream(handlers = {}) {
   let lastBannerText = null;
-
   const source = new EventSource('/events');
   source.onmessage = (msg) => {
     const snap = JSON.parse(msg.data);
-
-    if (banner) {
-      if (snap.banner) {
-        banner.textContent = snap.banner.text;
-        banner.className = `banner show ${snap.banner.color}`;
-        if (snap.banner.sound && snap.banner.text !== lastBannerText) beep();
-        lastBannerText = snap.banner.text;
-      } else {
-        banner.classList.remove('show');
-        lastBannerText = null;
-      }
-    }
-
-    if (list && snap.events.length) {
-      for (const ev of snap.events) {
-        const el = document.createElement('div');
-        el.className = 'event';
-        const conf = ev.confidence ? `<span class="conf">${Math.round(ev.confidence * 100)}%</span>` : '';
-        const kindLabel = { face: 'rosto', object: 'objeto', rule: 'regra', system: 'sistema' }[ev.kind] || ev.kind;
-        el.innerHTML = `<span class="badge ${ev.kind}">${kindLabel}</span>` +
-          `<span class="msg">${ev.message}</span>${conf}<span class="time">${ev.time}</span>`;
-        list.prepend(el);
-      }
-      while (list.children.length > 60) list.removeChild(list.lastChild);
-    }
+    if (handlers.onBanner) handlers.onBanner(snap.banner);
+    if (snap.banner && snap.banner.sound && snap.banner.text !== lastBannerText) beep();
+    lastBannerText = snap.banner ? snap.banner.text : null;
+    if (snap.events.length && handlers.onEvents) handlers.onEvents(snap.events);
   };
+  return source;
 }
 
 // ---------- vídeo MJPEG ----------
 // URL única por aba: sem isso o Chrome segura a 2ª requisição da mesma URL
 // esperando a 1ª terminar (cache lock) — e um stream nunca termina.
 // Também reconecta se o servidor reiniciar.
+function freshVideoUrl() {
+  return '/video_feed?t=' + Date.now() + Math.random().toString(36).slice(2);
+}
+
 function setupVideo() {
-  for (const img of document.querySelectorAll('img[src^="/video_feed"]')) {
-    img.src = '/video_feed?t=' + Date.now() + Math.random().toString(36).slice(2);
+  for (const img of document.querySelectorAll('img[data-video]')) {
+    img.src = freshVideoUrl();
     img.addEventListener('error', () => {
-      setTimeout(() => {
-        img.src = '/video_feed?t=' + Date.now() + Math.random().toString(36).slice(2);
-      }, 2000);
+      if (img.dataset.off === '1') return;
+      setTimeout(() => { img.src = freshVideoUrl(); }, 2000);
     });
   }
 }
 document.addEventListener('DOMContentLoaded', setupVideo);
 
-// ---------- status ----------
-async function pollStatus() {
-  const setDot = (id, on) => {
-    const el = document.getElementById(id);
-    if (el) el.className = `dot ${on ? 'on' : 'off'}`;
-  };
-  try {
-    const st = await api('GET', '/api/status');
-    setDot('dot-faces', st.faces_ready);
-    setDot('dot-objects', st.objects_ready);
-    setDot('dot-camera', st.camera === 'ao vivo');
-    const cam = document.getElementById('st-camera');
-    if (cam) cam.textContent = st.camera;
-    const fps = document.getElementById('st-fps');
-    if (fps) fps.textContent = st.fps || '—';
-  } catch (e) { /* servidor subindo */ }
-  setTimeout(pollStatus, 2000);
+// ---------- ícones ----------
+function initLucide() {
+  if (window.lucide) lucide.createIcons();
+}
+
+// ---------- relógio do OSD ----------
+function startOsdClock(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const tick = () => { el.textContent = new Date().toLocaleTimeString('pt-BR'); };
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ---------- sidebar das telas de gestão ----------
+function renderSidebar(active) {
+  const item = (href, icon, label, key) => `
+    <a href="${href}" class="w-full text-left px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-all ${key === active
+      ? 'bg-[#222222] text-white border border-[#333333]'
+      : 'text-[#888888] hover:text-white'}">
+      <i data-lucide="${icon}" class="w-3.5 h-3.5"></i><span>${label}</span>
+    </a>`;
+  const el = document.getElementById('sidebar');
+  el.className = 'w-full md:w-64 bg-[#181818] border-r border-[#262626] flex flex-col justify-between p-6 shrink-0 md:min-h-screen';
+  el.innerHTML = `
+    <div class="space-y-8">
+      <a href="/"><img src="/static/brand/logo_svg_dezoio.svg" alt="DeZoio" class="h-8 w-auto object-contain"></a>
+      <div class="space-y-1">
+        <span class="text-[9px] font-bold text-[#888888] uppercase tracking-wider block">Ambiente</span>
+        <h2 class="text-sm font-bold text-white truncate">${dzActiveWorkspace().name}</h2>
+      </div>
+      <nav class="space-y-1.5">
+        ${item('/painel', 'layout-dashboard', 'Dashboard', 'dashboard')}
+      </nav>
+      <div class="space-y-1.5 pt-4 border-t border-[#262626]">
+        <span class="text-[9px] font-bold text-[#888888] uppercase tracking-wider block px-1 pb-1">Gestão</span>
+        ${item('/pessoas', 'users', 'Pessoas', 'pessoas')}
+        ${item('/objetos', 'box', 'Objetos', 'objetos')}
+        ${item('/regras', 'git-branch', 'Regras', 'regras')}
+      </div>
+    </div>
+    <div class="pt-6 border-t border-[#262626] mt-8">
+      <a href="/" class="w-full flex items-center justify-center gap-2 text-xs font-bold text-[#888888] hover:text-white transition-all bg-[#222222]/35 hover:bg-[#222222] px-4 py-2.5 rounded-xl border border-[#2d2d2d]">
+        <i data-lucide="log-out" class="w-3.5 h-3.5"></i><span>Trocar Ambiente</span>
+      </a>
+    </div>`;
+  initLucide();
+}
+
+// ---------- ambientes (visuais, localStorage) ----------
+const DZ_PRINCIPAL = { id: 'principal', name: 'Câmera Principal' };
+
+function dzWorkspaces() {
+  const extra = JSON.parse(localStorage.getItem('dz_workspaces') || '[]');
+  return [DZ_PRINCIPAL, ...extra];
+}
+
+function dzActiveWorkspace() {
+  const id = localStorage.getItem('dz_active_ws') || 'principal';
+  return dzWorkspaces().find(w => w.id === id) || DZ_PRINCIPAL;
 }
