@@ -1,0 +1,4 @@
+# Backend opcional OBJECT_BACKEND=locate — NVIDIA LocateAnything-3B local.
+# Somente macOS/Apple Silicon (MLX). Em Linux com GPU NVIDIA, o caminho seria
+# transformers + CUDA (não implementado; ver app/locate.py).
+mlx-vlm

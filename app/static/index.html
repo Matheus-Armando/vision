@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>VisionFlow — Ao Vivo</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">Vision<span>Flow</span></div>
+    <a class="nav-item active" href="/">Ao Vivo</a>
+    <a class="nav-item" href="/pessoas">Pessoas</a>
+    <a class="nav-item" href="/objetos">Objetos</a>
+    <a class="nav-item" href="/regras">Regras</a>
+    <div class="footer">MVP — Ideathon 2026</div>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">Ao Vivo</div>
+    <div class="page-sub">A câmera vira fonte de dados: detecções em tempo real alimentam eventos e regras.</div>
+
+    <div style="display:flex; gap:10px; margin-bottom:14px;">
+      <span class="chip"><span class="dot" id="dot-camera"></span> Câmera: <b id="st-camera">—</b></span>
+      <span class="chip"><span class="dot" id="dot-faces"></span> Reconhecimento facial</span>
+      <span class="chip"><span class="dot" id="dot-objects"></span> Detecção de objetos</span>
+      <span class="chip">FPS: <b id="st-fps">—</b></span>
+    </div>
+
+    <div class="row">
+      <div style="flex:1; min-width:0;">
+        <div class="video-wrap">
+          <img id="video" src="/video_feed" alt="Câmera ao vivo">
+          <div class="banner" id="banner"></div>
+        </div>
+        <p style="color:var(--muted); font-size:12px; margin-top:10px;">
+          Quer detectar outro objeto? Adicione em
+          <a href="/objetos" style="color:var(--accent);">Objetos</a> — vale na hora, sem treinar.
+        </p>
+      </div>
+
+      <div class="events card">
+        <h3>Eventos em tempo real</h3>
+        <div class="event-list" id="event-list"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <script src="/static/app.js"></script>
+  <script>
+    startEventStream();
+    pollStatus();
+  </script>
+</body>
+</html>

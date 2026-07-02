@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>VisionFlow — Pessoas</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">Vision<span>Flow</span></div>
+    <a class="nav-item" href="/">Ao Vivo</a>
+    <a class="nav-item active" href="/pessoas">Pessoas</a>
+    <a class="nav-item" href="/objetos">Objetos</a>
+    <a class="nav-item" href="/regras">Regras</a>
+    <div class="footer">MVP — Ideathon 2026</div>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">Pessoas</div>
+    <div class="page-sub">Cadastre uma pessoa com 3–5 fotos — o reconhecimento passa a valer na hora.</div>
+
+    <div class="row">
+      <div class="card" style="width:340px; flex-shrink:0;">
+        <div class="field">
+          <label>Nome</label>
+          <input id="name-input" placeholder="ex.: Matheus" style="width:100%;">
+        </div>
+        <div class="field">
+          <label>Fotos (3–5: frente e leves ângulos, bem iluminadas)</label>
+          <input type="file" id="create-files" accept="image/*" multiple style="width:100%;">
+        </div>
+        <button class="primary" style="width:100%;" onclick="createPerson()">Cadastrar e treinar</button>
+        <p style="color:var(--muted); font-size:12px; margin-top:12px;">
+          O treinamento é automático: cada foto enviada (ou capturada da câmera)
+          vira uma assinatura facial na hora — sem etapa separada.
+        </p>
+        <div class="video-wrap" style="margin-top:14px;">
+          <img src="/video_feed" alt="Prévia da câmera">
+        </div>
+      </div>
+
+      <div style="flex:1;">
+        <div class="grid" id="people-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <input type="file" id="file-input" accept="image/*" multiple style="display:none;">
+  <script src="/static/app.js"></script>
+  <script>
+    let uploadTarget = null;
+
+    async function refresh() {
+      const people = await api('GET', '/api/people');
+      const grid = document.getElementById('people-grid');
+      grid.innerHTML = '';
+      if (!people.length) {
+        grid.innerHTML = '<p style="color:var(--muted);">Nenhuma pessoa cadastrada ainda.</p>';
+        return;
+      }
+      for (const p of people) {
+        const card = document.createElement('div');
+        card.className = 'card person-card';
+        card.innerHTML =
+          `<img class="thumb" src="/api/people/${p.id}/thumb?t=${Date.now()}" onerror="this.style.opacity=0.15">` +
+          `<div><div class="name">${p.name}</div>` +
+          (p.photos
+            ? `<div class="meta">${p.photos} foto(s) treinada(s)</div>`
+            : `<div class="meta" style="color:var(--red);">Sem fotos — não será reconhecido(a)</div>`) +
+          `</div>` +
+          `<div class="actions">` +
+          `<button onclick="pickFiles('${p.id}')">+ Fotos (treinar)</button>` +
+          `<button onclick="capture('${p.id}')">Capturar da câmera (treinar)</button>` +
+          `<button class="danger" onclick="removePerson('${p.id}', '${p.name}')">Excluir</button>` +
+          `</div>`;
+        grid.appendChild(card);
+      }
+    }
+
+    async function createPerson() {
+      const name = document.getElementById('name-input').value.trim();
+      if (!name) return toast('Digite um nome', true);
+      const filesInput = document.getElementById('create-files');
+      try {
+        const person = await api('POST', '/api/people', { name });
+        let msg = `${name} cadastrado(a)`;
+        if (filesInput.files.length) {
+          const form = new FormData();
+          for (const f of filesInput.files) form.append('files', f);
+          const res = await api('POST', `/api/people/${person.id}/photos`, form);
+          msg += ` — ${res.processed} foto(s) treinada(s)`;
+          if (res.skipped) msg += `, ${res.skipped} sem rosto detectado`;
+        } else {
+          msg += ' — envie fotos ou capture da câmera para treinar';
+        }
+        document.getElementById('name-input').value = '';
+        filesInput.value = '';
+        toast(msg);
+        refresh();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    function pickFiles(personId) {
+      uploadTarget = personId;
+      document.getElementById('file-input').click();
+    }
+
+    document.getElementById('file-input').addEventListener('change', async (ev) => {
+      if (!uploadTarget || !ev.target.files.length) return;
+      const form = new FormData();
+      for (const f of ev.target.files) form.append('files', f);
+      try {
+        const res = await api('POST', `/api/people/${uploadTarget}/photos`, form);
+        toast(`${res.processed} rosto(s) processado(s)` +
+              (res.skipped ? `, ${res.skipped} foto(s) sem rosto` : ''));
+        refresh();
+      } catch (e) { toast(e.message, true); }
+      ev.target.value = '';
+    });
+
+    async function capture(personId) {
+      try {
+        const res = await api('POST', `/api/people/${personId}/capture`);
+        toast(`Foto capturada — ${res.total} no total`);
+        refresh();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function removePerson(personId, name) {
+      if (!confirm(`Excluir ${name}?`)) return;
+      await api('DELETE', `/api/people/${personId}`);
+      refresh();
+    }
+
+    refresh();
+  </script>
+</body>
+</html>

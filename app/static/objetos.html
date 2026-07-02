@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>VisionFlow — Objetos</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .obj-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 8px 6px 14px; margin: 0 8px 8px 0;
+    }
+    .obj-chip .en { color: var(--muted); font-size: 11px; }
+    .obj-chip button {
+      border: none; background: transparent; color: var(--muted);
+      padding: 0 6px; font-size: 14px;
+    }
+    .obj-chip button:hover { color: var(--red); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">Vision<span>Flow</span></div>
+    <a class="nav-item" href="/">Ao Vivo</a>
+    <a class="nav-item" href="/pessoas">Pessoas</a>
+    <a class="nav-item active" href="/objetos">Objetos</a>
+    <a class="nav-item" href="/regras">Regras</a>
+    <div class="footer">MVP — Ideathon 2026</div>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">Objetos</div>
+    <div class="page-sub">
+      O detector é open-vocabulary: descreva o objeto em texto e ele passa a ser
+      reconhecido na hora — sem treinar nada.
+    </div>
+
+    <div class="row">
+      <div class="card" style="width:360px; flex-shrink:0;">
+        <div class="field">
+          <label>Termo em inglês (idioma do modelo — seja específico)</label>
+          <input id="obj-cls" placeholder="ex.: fire extinguisher" style="width:100%;">
+        </div>
+        <div class="field">
+          <label>Rótulo em português (como aparece na tela)</label>
+          <input id="obj-label" placeholder="ex.: extintor" style="width:100%;">
+        </div>
+        <button class="primary" style="width:100%;" onclick="addObject()">Adicionar objeto</button>
+        <p style="color:var(--muted); font-size:12px; margin-top:12px;">
+          Dica: descrições específicas detectam melhor — "leather wallet" em vez
+          de "wallet". Muitas classes ao mesmo tempo deixam a detecção mais lenta
+          e ruidosa; mantenha só o que a demo usa.
+        </p>
+
+        <div class="field" style="margin-top:18px;">
+          <label>Confiança mínima: <b id="conf-value">—</b></label>
+          <input id="conf-range" type="range" min="0.1" max="0.9" step="0.05"
+                 style="width:100%;" onchange="saveConf(this.value)"
+                 oninput="document.getElementById('conf-value').textContent = this.value">
+          <p style="color:var(--muted); font-size:12px; margin-top:6px;">
+            Suba para menos falsos positivos; desça se um objeto não estiver sendo detectado.
+          </p>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h3 style="font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);">
+            Vocabulário ativo (<span id="obj-count">0</span>)
+          </h3>
+          <div style="display:flex; gap:8px;">
+            <button onclick="extendedObjects()" title="~130 objetos comuns — bom para explorar o que a câmera enxerga">Modo descoberta</button>
+            <button onclick="resetObjects()">Vocabulário enxuto</button>
+          </div>
+        </div>
+        <div id="obj-list"></div>
+      </div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <script src="/static/app.js"></script>
+  <script>
+    async function refresh() {
+      const data = await api('GET', '/api/objects');
+      const list = document.getElementById('obj-list');
+      document.getElementById('obj-count').textContent = data.classes.length;
+      document.getElementById('conf-range').value = data.conf;
+      document.getElementById('conf-value').textContent = data.conf;
+      list.innerHTML = '';
+      const sorted = [...data.classes]
+        .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+      for (const o of sorted) {
+        const chip = document.createElement('span');
+        chip.className = 'obj-chip';
+        chip.innerHTML = `<span>${o.label}</span>` +
+          (o.label !== o.cls ? `<span class="en">${o.cls}</span>` : '') +
+          `<button title="Remover" onclick="removeObject('${o.cls}')">×</button>`;
+        list.appendChild(chip);
+      }
+    }
+
+    async function addObject() {
+      const cls = document.getElementById('obj-cls').value.trim();
+      const label = document.getElementById('obj-label').value.trim();
+      if (!cls) return toast('Informe o termo em inglês', true);
+      try {
+        const res = await api('POST', '/api/objects', { cls, label });
+        toast(`"${res.label}" adicionado — já está sendo detectado`);
+        document.getElementById('obj-cls').value = '';
+        document.getElementById('obj-label').value = '';
+        refresh();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function removeObject(cls) {
+      await api('DELETE', `/api/objects/${encodeURIComponent(cls)}`);
+      refresh();
+    }
+
+    async function resetObjects() {
+      if (!confirm('Voltar ao vocabulário enxuto padrão? Objetos adicionados saem da lista.')) return;
+      await api('POST', '/api/objects/reset');
+      toast('Vocabulário padrão restaurado');
+      refresh();
+    }
+
+    async function extendedObjects() {
+      const res = await api('POST', '/api/objects/extended');
+      toast(`Modo descoberta: ${res.count} objetos ativos`);
+      refresh();
+    }
+
+    async function saveConf(value) {
+      const res = await api('POST', '/api/objects/conf', { conf: Number(value) });
+      toast(`Confiança mínima: ${res.conf}`);
+    }
+
+    refresh();
+  </script>
+</body>
+</html>

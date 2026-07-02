@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>VisionFlow — Regras</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">Vision<span>Flow</span></div>
+    <a class="nav-item" href="/">Ao Vivo</a>
+    <a class="nav-item" href="/pessoas">Pessoas</a>
+    <a class="nav-item" href="/objetos">Objetos</a>
+    <a class="nav-item active" href="/regras">Regras</a>
+    <div class="footer">MVP — Ideathon 2026</div>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">Regras</div>
+    <div class="page-sub">SE a câmera detectar algo, ENTÃO execute uma ação. As regras valem na hora, sem reiniciar.</div>
+
+    <div class="row">
+      <div class="card" style="width:380px; flex-shrink:0;">
+        <div class="field">
+          <label>Nome da regra</label>
+          <input id="r-name" placeholder="ex.: Acesso liberado" style="width:100%;">
+        </div>
+
+        <div class="field">
+          <label><span class="rule-if">SE</span> (condição)</label>
+          <select id="r-cond" style="width:100%;" onchange="renderCondFields()"></select>
+        </div>
+        <div class="field" id="f-person" style="display:none;">
+          <label>Pessoa</label>
+          <select id="r-person" style="width:100%;"></select>
+        </div>
+        <div class="field" id="f-object" style="display:none;">
+          <label>Objeto</label>
+          <select id="r-object" style="width:100%;"></select>
+        </div>
+        <div class="field" id="f-seconds" style="display:none;">
+          <label>Ausente por (segundos)</label>
+          <input id="r-seconds" type="number" value="5" min="2" style="width:100%;">
+        </div>
+
+        <div class="field">
+          <label>Disparo</label>
+          <select id="r-trigger" style="width:100%;" onchange="renderTriggerFields()">
+            <option value="once">1x por aparição (re-arma quando a condição deixa de valer)</option>
+            <option value="interval">Repetir a cada X segundos enquanto valer</option>
+          </select>
+        </div>
+        <div class="field" id="f-trigger-seconds" style="display:none;">
+          <label>Repetir a cada (segundos)</label>
+          <input id="r-trigger-seconds" type="number" value="10" min="2" style="width:100%;">
+        </div>
+
+        <div class="field">
+          <label><span class="rule-if">ENTÃO</span> (ação)</label>
+          <select id="r-action" style="width:100%;">
+            <option value="banner_green">Banner verde (liberado / ok)</option>
+            <option value="banner_red">Banner vermelho (alerta)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Texto do banner — use {nome} e {objeto}</label>
+          <input id="r-text" placeholder="ex.: ACESSO LIBERADO — {nome}" style="width:100%;">
+        </div>
+        <div class="field" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="r-sound" style="width:auto;">
+          <label style="margin:0;">Tocar som de alerta</label>
+        </div>
+
+        <button class="primary" style="width:100%;" onclick="createRule()">Criar regra</button>
+      </div>
+
+      <div style="flex:1;" id="rules-list"></div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <script src="/static/app.js"></script>
+  <script>
+    let meta = { conditions: {}, people: [], objects: [] };
+
+    const NEEDS = {
+      person_recognized: ['person'],
+      unknown_person: [],
+      object_detected: ['object'],
+      person_with_object: ['person', 'object'],
+      person_without_object: ['person', 'object'],
+      object_absent: ['object', 'seconds'],
+    };
+
+    async function loadMeta() {
+      meta = await api('GET', '/api/rules/meta');
+      const cond = document.getElementById('r-cond');
+      cond.innerHTML = Object.entries(meta.conditions)
+        .map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+      const person = document.getElementById('r-person');
+      person.innerHTML = '<option value="">Qualquer pessoa</option>' +
+        meta.people.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+      const obj = document.getElementById('r-object');
+      const seen = new Set();
+      obj.innerHTML = meta.objects
+        .filter(o => !seen.has(o.label) && seen.add(o.label))
+        .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+        .map(o => `<option value="${o.cls}">${o.label}</option>`).join('');
+      renderCondFields();
+    }
+
+    function renderCondFields() {
+      const needs = NEEDS[document.getElementById('r-cond').value] || [];
+      document.getElementById('f-person').style.display = needs.includes('person') ? '' : 'none';
+      document.getElementById('f-object').style.display = needs.includes('object') ? '' : 'none';
+      document.getElementById('f-seconds').style.display = needs.includes('seconds') ? '' : 'none';
+    }
+
+    function renderTriggerFields() {
+      const interval = document.getElementById('r-trigger').value === 'interval';
+      document.getElementById('f-trigger-seconds').style.display = interval ? '' : 'none';
+    }
+
+    function describeTrigger(rule) {
+      const t = rule.trigger || { mode: 'interval', seconds: 10 };
+      return t.mode === 'once' ? '1x por aparição' : `a cada ${t.seconds}s`;
+    }
+
+    function describe(rule) {
+      const c = rule.condition;
+      let desc = meta.conditions[c.type] || c.type;
+      if (c.person_id) {
+        const p = meta.people.find(p => p.id === c.person_id);
+        desc += ` — ${p ? p.name : c.person_id}`;
+      }
+      if (c.object) {
+        const o = meta.objects.find(o => o.cls === c.object);
+        desc += ` — ${o ? o.label : c.object}`;
+      }
+      if (c.seconds) desc += ` — ${c.seconds}s`;
+      return desc;
+    }
+
+    async function refresh() {
+      const rules = await api('GET', '/api/rules');
+      const list = document.getElementById('rules-list');
+      list.innerHTML = '';
+      for (const rule of rules) {
+        const el = document.createElement('div');
+        el.className = 'card rule-card';
+        const color = rule.action.type === 'banner_green' ? 'var(--green)' : 'var(--red)';
+        el.innerHTML =
+          `<label class="toggle"><input type="checkbox" ${rule.enabled ? 'checked' : ''} ` +
+          `onchange="toggleRule('${rule.id}', this.checked)"><span class="track"></span><span class="thumb"></span></label>` +
+          `<div class="desc"><div><b>${rule.name}</b></div>` +
+          `<div class="cond"><span class="rule-if">SE</span> ${describe(rule)} ` +
+          `<span class="rule-if">ENTÃO</span> <span style="color:${color};">${rule.action.text}</span>` +
+          `${rule.action.sound ? ' 🔊' : ''} · ${describeTrigger(rule)}</div></div>` +
+          `<button class="danger" onclick="removeRule('${rule.id}')">Excluir</button>`;
+        list.appendChild(el);
+      }
+      window._rules = rules;
+    }
+
+    async function createRule() {
+      const condType = document.getElementById('r-cond').value;
+      const needs = NEEDS[condType] || [];
+      const condition = { type: condType };
+      if (needs.includes('person')) condition.person_id = document.getElementById('r-person').value || null;
+      if (needs.includes('object')) condition.object = document.getElementById('r-object').value;
+      if (needs.includes('seconds')) condition.seconds = Number(document.getElementById('r-seconds').value) || 5;
+      try {
+        await api('POST', '/api/rules', {
+          name: document.getElementById('r-name').value || 'Regra',
+          condition,
+          action: {
+            type: document.getElementById('r-action').value,
+            text: document.getElementById('r-text').value,
+            sound: document.getElementById('r-sound').checked,
+          },
+          trigger: {
+            mode: document.getElementById('r-trigger').value,
+            seconds: Number(document.getElementById('r-trigger-seconds').value) || 10,
+          },
+        });
+        toast('Regra criada — já está valendo');
+        document.getElementById('r-name').value = '';
+        document.getElementById('r-text').value = '';
+        refresh();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function toggleRule(id, enabled) {
+      const rule = window._rules.find(r => r.id === id);
+      rule.enabled = enabled;
+      await api('PUT', `/api/rules/${id}`, rule);
+      toast(enabled ? 'Regra ativada' : 'Regra desativada');
+    }
+
+    async function removeRule(id) {
+      await api('DELETE', `/api/rules/${id}`);
+      refresh();
+    }
+
+    loadMeta().then(refresh);
+  </script>
+</body>
+</html>

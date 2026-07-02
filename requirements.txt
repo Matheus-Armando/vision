@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+opencv-python
+insightface
+onnxruntime
+ultralytics
+# o backend opcional OBJECT_BACKEND=locate (macOS/Apple Silicon) usa
+# requirements-locate.txt

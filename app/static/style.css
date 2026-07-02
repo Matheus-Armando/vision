@@ -1,0 +1,202 @@
+:root {
+  --bg: #0b0b10;
+  --panel: #14141c;
+  --panel-2: #1a1a24;
+  --border: #262633;
+  --text: #e8e8ef;
+  --muted: #8b8b9e;
+  --accent: #7c6cf5;
+  --green: #34c98a;
+  --red: #ef5567;
+  --blue: #58a6ff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  font-size: 14px;
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---------- sidebar ---------- */
+.sidebar {
+  width: 220px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 24px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.logo {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 0 10px 20px;
+}
+.logo span { color: var(--accent); }
+.nav-item {
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-item:hover { background: var(--panel-2); color: var(--text); }
+.nav-item.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
+.sidebar .footer { margin-top: auto; font-size: 11px; color: var(--muted); padding: 0 10px; }
+
+/* ---------- layout ---------- */
+.main { flex: 1; padding: 28px 32px; min-width: 0; }
+.page-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.page-sub { color: var(--muted); margin-bottom: 24px; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.row { display: flex; gap: 20px; align-items: flex-start; }
+
+/* ---------- badges e chips ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.dot.on { background: var(--green); }
+.dot.off { background: var(--red); }
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge.face { background: rgba(52, 201, 138, 0.15); color: var(--green); }
+.badge.object { background: rgba(88, 166, 255, 0.15); color: var(--blue); }
+.badge.rule { background: rgba(124, 108, 245, 0.18); color: var(--accent); }
+.badge.system { background: var(--panel-2); color: var(--muted); }
+
+/* ---------- vídeo + banner ---------- */
+.video-wrap { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: #000; }
+.video-wrap img { display: block; width: 100%; }
+.banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  opacity: 0;
+  transition: opacity 0.25s;
+  white-space: nowrap;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+.banner.show { opacity: 1; }
+.banner.green { background: var(--green); color: #06281a; }
+.banner.red { background: var(--red); color: #fff; }
+
+/* ---------- eventos ---------- */
+.events { width: 340px; flex-shrink: 0; max-height: 78vh; display: flex; flex-direction: column; }
+.events h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+.event-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.event {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slide-in 0.25s ease;
+}
+.event .msg { flex: 1; }
+.event .time { color: var(--muted); font-size: 11px; }
+.event .conf { color: var(--muted); font-size: 11px; }
+@keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; } }
+
+/* ---------- formulários ---------- */
+input, select, button, textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+input:focus, select:focus { outline: 1px solid var(--accent); }
+button { cursor: pointer; transition: filter 0.15s; }
+button:hover { filter: brightness(1.2); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.danger { color: var(--red); }
+label { color: var(--muted); font-size: 12px; display: block; margin-bottom: 4px; }
+.field { margin-bottom: 14px; }
+
+/* ---------- listas de cards ---------- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.person-card { display: flex; flex-direction: column; gap: 10px; }
+.person-card img.thumb {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.person-card .name { font-weight: 700; }
+.person-card .meta { color: var(--muted); font-size: 12px; }
+.person-card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.person-card .actions button { padding: 6px 10px; font-size: 12px; }
+
+.rule-card { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.rule-card .desc { flex: 1; }
+.rule-card .desc .cond { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.rule-if { color: var(--accent); font-weight: 700; }
+
+/* toggle */
+.toggle { position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
+.toggle input { display: none; }
+.toggle .track { position: absolute; inset: 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; transition: background 0.2s; }
+.toggle .thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform 0.2s, background 0.2s; }
+.toggle input:checked + .track { background: rgba(52, 201, 138, 0.3); }
+.toggle input:checked + .track + .thumb { transform: translateX(16px); background: var(--green); }
+
+details.advanced { margin-top: 14px; color: var(--muted); }
+details.advanced summary { cursor: pointer; font-size: 12px; }
+details.advanced .inner { margin-top: 10px; display: flex; gap: 8px; }
+details.advanced input { flex: 1; }
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 16px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 50;
+}
+.toast.show { opacity: 1; }
